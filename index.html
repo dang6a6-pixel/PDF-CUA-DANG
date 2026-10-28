@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trình sửa PDF – thêm, xoá, tách, nén</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#e3f1fc;--panel:#fff;--ink:#0f2a4a;--mute:#56708f;--line:#c3dbf0;--acc:#1668d4;--acc2:#dcecff;--or:#f0561f;--danger:#d92d4b;--sh:0 1px 2px rgba(15,70,140,.08),0 8px 22px rgba(15,70,140,.10)}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:linear-gradient(180deg,#cfe8fa 0,#e6f3fd 340px,#f2f8fe 100%) fixed;color:var(--ink);font:15px/1.5 "Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:14px 22px;background:linear-gradient(100deg,#0a4fb8 0,#1688de 62%,#37bdee 100%);color:#fff;flex-wrap:wrap;position:relative;z-index:2}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;margin-right:auto}
+.logo b{width:34px;height:34px;border-radius:50%;background:#fff;display:grid;place-items:center}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:9px;font-weight:500;white-space:nowrap}
+.btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pri{background:var(--or);color:#fff;font-weight:600}.pri:hover{filter:brightness(1.1)}
+.ghost{background:#fff;box-shadow:inset 0 0 0 1px var(--line)}.ghost:hover:not(:disabled){background:var(--acc2);color:var(--acc)}
+header .ghost{background:rgba(255,255,255,.18);box-shadow:none;color:#fff}header .ghost:hover:not(:disabled){background:#fff;color:var(--acc)}
+.danger:hover:not(:disabled){background:var(--danger);color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.bar{display:flex;align-items:center;gap:6px;padding:10px 20px;flex-wrap:wrap}
+.bar .sep{width:1px;height:24px;background:var(--line);margin:0 6px}
+#count{margin-left:auto;color:var(--mute);font-size:.9rem}
+main{flex:1;overflow:auto;padding:8px 20px 40px;position:relative;z-index:1}
+.deco{position:fixed;left:0;bottom:0;width:120px;height:120px;z-index:0;pointer-events:none}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:18px}
+.card{position:relative;background:var(--panel);border:2px solid transparent;border-radius:14px;padding:10px 10px 6px;cursor:pointer;user-select:none;box-shadow:var(--sh);transition:transform .12s,border-color .12s}
+.card:hover{transform:translateY(-2px)}
+.card.sel{border-color:var(--acc);background:var(--acc2)}
+.card.over{border-left-color:var(--danger)}
+.thumb{aspect-ratio:3/4;background:var(--bg);border-radius:8px;display:grid;place-items:center;overflow:hidden}
+.thumb img{max-width:100%;max-height:100%;opacity:0;transition:opacity .2s,transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.2);pointer-events:none}
+.thumb img.ld{opacity:1}
+.meta{display:flex;justify-content:space-between;gap:6px;font-size:.82rem;color:var(--mute);padding:6px 2px 2px}
+.meta span{font-weight:600;color:var(--ink)}.meta em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chk{position:absolute;top:16px;left:16px;width:22px;height:22px;border-radius:50%;background:var(--panel);border:2px solid var(--line);display:grid;place-items:center}
+.sel .chk{background:var(--acc);border-color:var(--acc)}.sel .chk::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px)}
+#empty{display:none;max-width:560px;margin:8vh auto 0;text-align:center;border:2px dashed #8fc0ec;border-radius:20px;padding:48px 24px;background:var(--panel)}
+#empty h2{margin:0 0 8px;font-size:1.5rem;color:var(--or)}#empty p{color:var(--mute);margin:0 0 22px}
+body.drag main{outline:3px dashed var(--acc);outline-offset:-10px}
+dialog{border:0;border-radius:18px;padding:24px;width:min(440px,92vw);background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(10,12,25,.55)}
+dialog h3{margin:0 0 14px;color:var(--or);font-size:1.2rem}dialog label{display:flex;gap:10px;padding:9px 0;align-items:flex-start;cursor:pointer}
+dialog small{display:block;color:var(--mute)}
+dialog input[type=text],dialog input[type=number]{width:100%;font:inherit;padding:9px 12px;margin:2px 0 4px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+.chip{font:inherit;font-size:.88rem;border:1px solid var(--line);border-radius:999px;padding:3px 12px}.chip:hover{border-color:var(--acc);color:var(--acc)}
+dialog select{font:inherit;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.pbar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:14px}.pbar i{display:block;height:100%;width:0;background:var(--acc);transition:width .15s}
+#zstatus{margin-top:8px;min-height:3em;color:var(--mute);font-size:.9rem}.note{font-size:.82rem;color:var(--mute);margin:10px 0 0}
+#busy{position:fixed;inset:0;background:rgba(10,12,25,.55);display:none;place-items:center;color:#fff;font-weight:600;z-index:9}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><b><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1668d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6zM14 3v5h5"/></svg></b>Trình sửa PDF</div>
+  <button class="btn ghost" data-i="M12 5v14M5 12h14" id="add">Thêm PDF</button>
+  <button class="btn ghost" data-i="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01" id="addimg">Thêm ảnh</button>
+  <button class="btn ghost" data-i="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" id="zip" disabled>Nén PDF</button>
+  <button class="btn pri" data-i="M12 4v11M7 11l5 5 5-5M5 20h14" id="save" disabled>Lưu PDF</button>
+</header>
+<div class="bar" id="bar">
+  <button class="btn ghost" data-i="M4 4h16v16H4zM8 12l3 3 5-6" id="all">Chọn tất cả</button>
+  <button class="btn ghost" data-i="M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" id="undo">Hoàn tác</button>
+  <span class="sep"></span>
+  <button class="btn ghost danger" data-i="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3" id="del">Xoá trang</button>
+  <button class="btn ghost" data-i="M4 12a8 8 0 1 1 3 6.2M4 19v-5h5" id="rl">Xoay trái</button>
+  <button class="btn ghost" data-i="M20 12a8 8 0 1 0-3 6.2M20 19v-5h-5" id="rr">Xoay phải</button>
+  <span class="sep"></span>
+  <button class="btn ghost" data-i="M12 3v18M5 8l-3 4 3 4M19 8l3 4-3 4" id="split">Tách file</button>
+  <span id="count"></span>
+</div>
+<svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><polygon points="0,120 0,78 42,120" fill="#f0561f"/><polygon points="0,78 0,38 40,78" fill="#1a8fe0"/><polygon points="42,120 84,120 63,99" fill="#f6b21e"/><polygon points="0,38 0,0 38,38" fill="#37bdee"/><polygon points="84,120 120,120 102,102" fill="#1668d4"/></svg>
+<main id="main">
+  <div id="empty"><h2>Thả file PDF hoặc ảnh vào đây</h2><p>Mở file PDF, hoặc chọn ảnh JPG, PNG để ghép thành PDF. Sau đó thêm, xoá, xoay, đổi chỗ, tách hoặc nén. Mọi thứ được xử lý ngay trên máy bạn.</p><button class="btn pri" id="open2">Chọn file PDF</button> <button class="btn ghost" id="open3">Chọn ảnh</button></div>
+  <div id="grid"></div>
+</main>
+<input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+<input type="file" id="imgfile" accept="image/*" multiple hidden>
+
+<dialog id="dlg"><form method="dialog" id="sf">
+  <h3>Tách file PDF</h3>
+  <label><input type="radio" name="m" value="sel" checked><span>Các trang đã chọn thành 1 file<small id="selInfo"></small></span></label>
+  <label><input type="radio" name="m" value="ranges"><span>Theo khoảng trang, mỗi khoảng một file<small>Ví dụ: 1-3, 5, 7-9</small></span></label>
+  <input type="text" id="rv" placeholder="1-3, 5, 7-9" hidden>
+  <label><input type="radio" name="m" value="every"><span>Cứ mỗi N trang một file</span></label>
+  <input type="number" id="nv" min="1" value="1" hidden>
+  <label><input type="radio" name="m" value="each"><span>Mỗi trang một file</span></label>
+  <div class="acts"><button type="button" class="btn ghost" id="cancel">Huỷ</button><button class="btn pri" id="doSplit" type="button">Tách và tải về</button></div>
+</form></dialog>
+<dialog id="zdlg">
+  <h3>Nén PDF theo dung lượng</h3>
+  <p id="zinfo" style="color:var(--mute);margin:0 0 12px"></p>
+  <div style="display:flex;gap:8px"><input type="number" id="zsize" min="1" step="any" value="1"><select id="zunit" aria-label="Đơn vị"><option>KB</option><option selected>MB</option></select></div>
+  <div class="chips" id="zchips"><button class="chip" data-v="200" data-u="KB">200 KB</button><button class="chip" data-v="500" data-u="KB">500 KB</button><button class="chip" data-v="1" data-u="MB">1 MB</button><button class="chip" data-v="2" data-u="MB">2 MB</button><button class="chip" data-v="5" data-u="MB">5 MB</button></div>
+  <div class="pbar"><i id="zfill"></i></div><div id="zstatus" role="status" aria-live="polite"></div>
+  <p class="note">Mỗi trang được chuyển thành ảnh JPEG nên chữ sẽ không còn chọn hay tìm kiếm được. Dùng khi cần ép file nhỏ hơn giới hạn tải lên.</p>
+  <div class="acts"><button type="button" class="btn ghost" id="zcancel">Đóng</button><button type="button" class="btn pri" id="zgo">Nén và tải về</button></div>
+</dialog>
+<dialog id="idlg">
+  <h3>Chuyển ảnh thành trang PDF</h3>
+  <p id="iinfo" style="color:var(--mute);margin:0 0 8px"></p>
+  <label style="justify-content:space-between;align-items:center">Khổ trang<select id="isize"><option value="a4">A4, ảnh nằm vừa trang</option><option value="fit">Bằng kích thước ảnh</option></select></label>
+  <label id="mlabel" style="justify-content:space-between;align-items:center">Lề<select id="imargin"><option value="0">Không lề</option><option value="18">Nhỏ</option><option value="36" selected>Vừa</option></select></label>
+  <label><input type="checkbox" id="isort" checked><span>Sắp xếp ảnh theo tên file<small>Tắt nếu muốn giữ đúng thứ tự bạn chọn</small></span></label>
+  <div class="acts"><button type="button" class="btn ghost" id="icancel">Huỷ</button><button type="button" class="btn pri" id="igo">Chuyển thành PDF</button></div>
+</dialog>
+<div id="busy">Đang xử lý...</div><div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id), {PDFDocument,degrees}=PDFLib;
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+document.querySelectorAll("[data-i]").forEach(b=>b.insertAdjacentHTML("afterbegin",`<svg viewBox="0 0 24 24"><path d="${b.dataset.i}"/></svg>`));
+const S={src:[],pages:[],hist:[],last:-1};let uid=0,toastT;
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const toast=m=>{const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),2600)};
+const push=()=>{S.hist.push(S.pages.map(p=>({...p})));if(S.hist.length>50)S.hist.shift()};
+const selected=()=>S.pages.filter(p=>p.sel);
+const baseName=()=>(S.src[0]?.name||"tai-lieu").replace(/\.pdf$/i,"");
+function dl(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+
+async function addFiles(files){
+  const np=[];
+  for(const f of files){
+    if(!/pdf$/i.test(f.type||f.name))continue;
+    const bytes=new Uint8Array(await f.arrayBuffer());
+    try{
+      const doc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+      const si=S.src.push({bytes,doc,name:f.name,cache:{}})-1;
+      for(let i=0;i<doc.numPages;i++)np.push({id:++uid,s:si,i,rot:0,sel:false});
+    }catch(e){toast("Không mở được "+f.name+" (file hỏng hoặc có mật khẩu)")}
+  }
+  if(!np.length)return;
+  push();
+  const at=S.pages.findLastIndex(p=>p.sel)+1||S.pages.length;
+  S.pages.splice(at,0,...np);render();
+  toast(`Đã thêm ${np.length} trang`+(at<S.pages.length-np.length?" sau trang đã chọn":""));
+}
+
+const q=[];let pumping=false;
+async function pump(){if(pumping)return;pumping=true;while(q.length){const {el,p}=q.shift();if(el.isConnected)try{await thumb(el,p)}catch(e){}}pumping=false}
+async function thumb(img,p){
+  const src=S.src[p.s];let u=src.cache[p.i];
+  if(!u){
+    const pg=await src.doc.getPage(p.i+1),w=pg.getViewport({scale:1}).width,vp=pg.getViewport({scale:260/w});
+    const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;
+    const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:x,viewport:vp}).promise;
+    u=src.cache[p.i]=c.toDataURL("image/jpeg",.82);
+  }
+  img.src=u;img.classList.add("ld");
+}
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);q.push({el:e.target,p:S.pages.find(p=>p.id==e.target.dataset.id)});pump()}}),{rootMargin:"500px"});
+
+function render(){
+  const g=$("grid");g.innerHTML="";
+  S.pages.forEach((p,n)=>{
+    const d=document.createElement("div");d.className="card"+(p.sel?" sel":"");d.draggable=true;d.dataset.n=n;
+    const tf=`rotate(${p.rot}deg)`+(p.rot%180?" scale(.72)":"");
+    d.innerHTML=`<div class="thumb"><img alt="Trang ${n+1}" data-id="${p.id}" style="transform:${tf}"></div><div class="meta"><span>${n+1}</span>${S.src.length>1?`<em>${esc(S.src[p.s].name)}</em>`:""}</div><i class="chk"></i>`;
+    const img=d.querySelector("img"),u=S.src[p.s].cache[p.i];
+    if(u){img.src=u;img.classList.add("ld")}else io.observe(img);
+    g.appendChild(d);
+  });
+  const sel=selected().length,has=S.pages.length>0;
+  $("empty").style.display=has?"none":"block";
+  $("count").textContent=has?`${S.pages.length} trang · ${sel} đã chọn`:"";
+  $("save").disabled=!has;$("zip").disabled=!has;$("split").disabled=!has;$("all").disabled=!has;$("undo").disabled=!S.hist.length;
+  ["del","rl","rr"].forEach(i=>$(i).disabled=!sel);
+}
+
+$("grid").addEventListener("click",e=>{
+  const c=e.target.closest(".card");if(!c)return;const n=+c.dataset.n;
+  if(e.shiftKey&&S.last>=0){const[a,b]=[Math.min(S.last,n),Math.max(S.last,n)];S.pages.forEach((p,i)=>p.sel=i>=a&&i<=b)}
+  else S.pages[n].sel=!S.pages[n].sel;
+  S.last=n;render();
+});
+let dragN=null;
+$("grid").addEventListener("dragstart",e=>{const c=e.target.closest(".card");if(c){dragN=+c.dataset.n;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain","p")}});
+$("grid").addEventListener("dragover",e=>{if(dragN===null)return;e.preventDefault();document.querySelectorAll(".over").forEach(x=>x.classList.remove("over"));e.target.closest(".card")?.classList.add("over")});
+$("grid").addEventListener("drop",e=>{
+  if(dragN===null)return;e.preventDefault();e.stopPropagation();
+  const c=e.target.closest(".card"),moved=S.pages[dragN];
+  const group=moved.sel?selected():[moved];
+  const target=c?S.pages[+c.dataset.n]:null;
+  if(target&&group.includes(target)){dragN=null;render();return}
+  push();
+  let rest=S.pages.filter(p=>!group.includes(p));
+  let at=target?rest.indexOf(target):rest.length;
+  if(target&&e.offsetX>c.offsetWidth/2&&false)at++;
+  rest.splice(at,0,...group);S.pages=rest;dragN=null;render();
+});
+$("grid").addEventListener("dragend",()=>{dragN=null;render()});
+
+$("add").onclick=$("open2").onclick=()=>$("file").click();
+$("file").onchange=async e=>{await addFiles([...e.target.files]);e.target.value=""};
+["dragenter","dragover"].forEach(v=>window.addEventListener(v,e=>{if(e.dataTransfer?.types?.includes("Files")){e.preventDefault();document.body.classList.add("drag")}}));
+["dragleave","drop"].forEach(v=>window.addEventListener(v,e=>{if(e.dataTransfer?.types?.includes("Files")){e.preventDefault();document.body.classList.remove("drag");if(v==="drop")routeFiles([...e.dataTransfer.files])}}));
+
+$("all").onclick=()=>{const all=selected().length!==S.pages.length;S.pages.forEach(p=>p.sel=all);render()};
+$("undo").onclick=()=>{if(S.hist.length){S.pages=S.hist.pop();render()}};
+$("del").onclick=()=>{const n=selected().length;if(!n)return;push();S.pages=S.pages.filter(p=>!p.sel);S.last=-1;render();toast(`Đã xoá ${n} trang, bấm Hoàn tác nếu nhầm`)};
+const rot=d=>{if(!selected().length)return;push();selected().forEach(p=>p.rot=(p.rot+d+360)%360);render()};
+$("rl").onclick=()=>rot(-90);$("rr").onclick=()=>rot(90);
+addEventListener("keydown",e=>{if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)||$("dlg").open)return;
+  if(e.key==="Delete")$("del").click();if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();$("undo").click()}});
+
+async function build(pages){
+  const out=await PDFDocument.create(),by={},map={};
+  pages.forEach(p=>(by[p.s]??=[]).push(p.i));
+  for(const s in by){
+    const d=await PDFDocument.load(S.src[s].bytes,{ignoreEncryption:true}),ix=[...new Set(by[s])],cp=await out.copyPages(d,ix);
+    ix.forEach((k,j)=>map[s+":"+k]=cp[j]);
+  }
+  pages.forEach(p=>{const pg=map[p.s+":"+p.i];pg.setRotation(degrees((pg.getRotation().angle+p.rot)%360));out.addPage(pg)});
+  return out.save();
+}
+async function busy(fn){$("busy").style.display="grid";await new Promise(r=>setTimeout(r,30));try{await fn()}catch(e){console.error(e);toast("Có lỗi khi xử lý file")}$("busy").style.display="none"}
+
+$("save").onclick=()=>busy(async()=>{dl(new Blob([await build(S.pages)],{type:"application/pdf"}),baseName()+"-da-sua.pdf")});
+
+const dlg=$("dlg");
+$("split").onclick=()=>{$("selInfo").textContent=selected().length?`Đang chọn ${selected().length} trang`:"Hãy chọn trang trước khi dùng cách này";dlg.showModal()};
+$("cancel").onclick=()=>dlg.close();
+document.querySelectorAll("[name=m]").forEach(r=>r.onchange=()=>{$("rv").hidden=r.value!=="ranges"||!r.checked;$("nv").hidden=r.value!=="every"||!r.checked});
+function groups(){
+  const m=document.querySelector("[name=m]:checked").value,P=S.pages;
+  if(m==="sel"){const s=selected();if(!s.length)throw"Chưa chọn trang nào";return[s]}
+  if(m==="each")return P.map(p=>[p]);
+  if(m==="every"){const n=Math.max(1,+$("nv").value|0),r=[];for(let i=0;i<P.length;i+=n)r.push(P.slice(i,i+n));return r}
+  const r=[];
+  for(const t of $("rv").value.split(",").map(x=>x.trim()).filter(Boolean)){
+    const mt=t.match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!mt)throw`Khoảng "${t}" không hợp lệ`;
+    const a=+mt[1],b=+(mt[2]||mt[1]);if(a<1||b<a||b>P.length)throw`Khoảng "${t}" nằm ngoài ${P.length} trang`;
+    r.push(P.slice(a-1,b));
+  }
+  if(!r.length)throw"Hãy nhập khoảng trang";return r;
+}
+$("doSplit").onclick=()=>{
+  let gs;try{gs=groups()}catch(e){toast(e);return}
+  dlg.close();
+  busy(async()=>{
+    const b=baseName();
+    if(gs.length===1){dl(new Blob([await build(gs[0])],{type:"application/pdf"}),b+"-tach.pdf");return}
+    const z=new JSZip();
+    for(let i=0;i<gs.length;i++)z.file(`${b}-tach-${i+1}.pdf`,await build(gs[i]));
+    dl(await z.generateAsync({type:"blob"}),b+"-tach.zip");
+    toast(`Đã tách thành ${gs.length} file (nén trong .zip)`);
+  });
+};
+
+/* ===== Nén PDF theo dung lượng ===== */
+const zdlg=$("zdlg"),zp=(p,m)=>{$("zfill").style.width=Math.round(p*100)+"%";if(m)$("zstatus").textContent=m};
+const tick=()=>new Promise(r=>setTimeout(r,0));
+const fmt=b=>b>=1048576?(b/1048576).toFixed(2)+" MB":Math.round(b/1024)+" KB";
+$("zip").onclick=()=>{zp(0,"");$("zinfo").textContent=`${S.pages.length} trang sẽ được nén, đã tính các chỉnh sửa của bạn.`;zdlg.showModal()};
+$("zcancel").onclick=()=>zdlg.close();
+$("zchips").onclick=e=>{const c=e.target.closest(".chip");if(c){$("zsize").value=c.dataset.v;$("zunit").value=c.dataset.u}};
+const zEnc=(cs,q)=>{const urls=cs.map(c=>c.toDataURL("image/jpeg",q));return{urls,bytes:urls.reduce((s,u)=>s+(u.length-23)*.75+900,1500)}};
+async function zRender(pdf,dpi,base,tn){
+  const cs=[],dims=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const pg=await pdf.getPage(i),v1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:dpi/72});
+    const c=document.createElement("canvas");c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
+    const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:x,viewport:vp}).promise;
+    cs.push(c);dims.push([v1.width,v1.height]);
+    zp(base+(i/pdf.numPages)/tn*.85,`Dựng trang ở ${dpi} dpi: ${i}/${pdf.numPages}`);await tick();
+  }
+  return{cs,dims};
+}
+$("zgo").onclick=async()=>{
+  const limit=parseFloat($("zsize").value)*($("zunit").value==="MB"?1048576:1024);
+  if(!(limit>0)){$("zstatus").textContent="Nhập dung lượng tối đa hợp lệ.";return}
+  $("zgo").disabled=true;
+  try{
+    zp(0,"Đang ghép các trang đã chỉnh sửa...");
+    const bytes=await build(S.pages);
+    if(bytes.length<=limit){
+      dl(new Blob([bytes],{type:"application/pdf"}),baseName()+"-da-sua.pdf");
+      zp(1,`File chỉ ${fmt(bytes.length)}, đã nhỏ hơn giới hạn nên được lưu mà không cần nén.`);return;
+    }
+    const pdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise,target=limit*.96,tiers=[144,110,88,72,56];
+    let best=null;
+    for(let t=0;t<tiers.length;t++){
+      const{cs,dims}=await zRender(pdf,tiers[t],t/tiers.length,tiers.length);
+      let lo=.2,hi=.92,pick=null,r=zEnc(cs,hi);
+      if(r.bytes<=target)pick={q:hi,r};
+      else{
+        r=zEnc(cs,lo);
+        if(r.bytes<=target){
+          pick={q:lo,r};
+          for(let k=0;k<6;k++){const mid=(lo+hi)/2,m=zEnc(cs,mid);if(m.bytes<=target){lo=mid;pick={q:mid,r:m}}else hi=mid}
+        }else if(!best||r.bytes<best.r.bytes)best={q:lo,r,dims,dpi:tiers[t]};
+      }
+      cs.forEach(c=>{c.width=0;c.height=0});
+      if(pick){best={...pick,dims,dpi:tiers[t]};if(pick.q>=.5)break}
+      await tick();
+    }
+    zp(.95,"Đang ghép PDF...");
+    const{jsPDF}=window.jspdf;let doc=null;
+    best.r.urls.forEach((u,i)=>{const[w,h]=best.dims[i],o=w>h?"l":"p";
+      if(!doc)doc=new jsPDF({unit:"pt",format:[w,h],orientation:o,compress:true});else doc.addPage([w,h],o);
+      doc.addImage(u,"JPEG",0,0,w,h,undefined,"NONE")});
+    const blob=doc.output("blob");
+    dl(blob,baseName()+"-nen.pdf");
+    zp(1,blob.size<=limit
+      ?`Xong: ${fmt(bytes.length)} → ${fmt(blob.size)} (giảm ${Math.round((1-blob.size/bytes.length)*100)}%). File đã được tải về.`
+      :`Đã nén hết mức xuống ${fmt(blob.size)} nhưng chưa đạt ${fmt(limit)}. Hãy tăng giới hạn. File vẫn được tải về.`);
+  }catch(e){console.error(e);$("zstatus").textContent="Không nén được file. Thử giảm số trang hoặc tăng giới hạn."}
+  $("zgo").disabled=false;
+};
+
+/* ===== Ảnh thành PDF ===== */
+const idlg=$("idlg");let imgFiles=[];
+const isImg=f=>/^image\/(jpeg|png|webp|gif|bmp)$/.test(f.type)||/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name);
+function openImg(files){imgFiles=files;$("iinfo").textContent=`${files.length} ảnh đã chọn`;idlg.showModal()}
+function routeFiles(files){const imgs=files.filter(isImg),pdfs=files.filter(f=>!isImg(f));if(pdfs.length)addFiles(pdfs);if(imgs.length)openImg(imgs)}
+$("addimg").onclick=$("open3").onclick=()=>$("imgfile").click();
+$("imgfile").onchange=e=>{const f=[...e.target.files];e.target.value="";if(f.length)openImg(f)};
+$("icancel").onclick=()=>idlg.close();
+$("isize").onchange=()=>{$("mlabel").style.display=$("isize").value==="fit"?"none":"flex"};
+async function toRaster(f){
+  const bmp=await createImageBitmap(f),k=Math.min(1,3500/Math.max(bmp.width,bmp.height));
+  const c=document.createElement("canvas");c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
+  const x=c.getContext("2d"),jpg=/jpe?g/i.test(f.type||f.name);
+  if(jpg){x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height)}
+  x.drawImage(bmp,0,0,c.width,c.height);
+  const blob=await new Promise(r=>c.toBlob(r,jpg?"image/jpeg":"image/png",.95));
+  return{bytes:new Uint8Array(await blob.arrayBuffer()),w:c.width,h:c.height,jpg};
+}
+$("igo").onclick=()=>{
+  idlg.close();
+  busy(async()=>{
+    const fs=imgFiles.slice();
+    if($("isort").checked)fs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+    const mode=$("isize").value,m=mode==="a4"?+$("imargin").value:0,out=await PDFDocument.create();
+    let ok=0;
+    for(const f of fs){
+      try{
+        const r=await toRaster(f),im=r.jpg?await out.embedJpg(r.bytes):await out.embedPng(r.bytes);
+        let pw,ph;
+        if(mode==="a4")[pw,ph]=r.w>r.h?[841.89,595.28]:[595.28,841.89];else{pw=r.w*.75;ph=r.h*.75}
+        const pg=out.addPage([pw,ph]),sc=Math.min((pw-2*m)/r.w,(ph-2*m)/r.h),w=r.w*sc,h=r.h*sc;
+        pg.drawImage(im,{x:(pw-w)/2,y:(ph-h)/2,width:w,height:h});ok++;
+      }catch(e){console.error(e);toast("Không đọc được ảnh "+f.name)}
+    }
+    if(!ok)return;
+    const name=fs.length===1?fs[0].name.replace(/\.[^.]+$/,""):"anh-thanh-pdf";
+    await addFiles([new File([await out.save()],name+".pdf",{type:"application/pdf"})]);
+  });
+};
+render();
+</script>
+</body>
+</html>
