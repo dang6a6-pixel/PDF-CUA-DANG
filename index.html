@@ -60,6 +60,9 @@ dialog select{font:inherit;padding:9px 12px;border-radius:9px;border:1px solid v
 .fprev canvas{width:100%;height:auto;max-height:44vh;object-fit:contain;background:var(--bg);border-radius:8px;box-shadow:var(--sh)}
 .chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
 dialog input[type=range],dialog input[type=checkbox]{accent-color:var(--acc)}
+.cwrap{background:#0b1624;border-radius:12px;padding:12px;text-align:center;margin-bottom:12px}
+.stage{position:relative;display:inline-block;line-height:0}.stage canvas{max-width:100%;max-height:56vh}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 #busy{position:fixed;inset:0;background:rgba(10,12,25,.55);display:none;place-items:center;color:#fff;font-weight:600;z-index:9}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
 #toast.on{opacity:1}
@@ -81,6 +84,7 @@ dialog input[type=range],dialog input[type=checkbox]{accent-color:var(--acc)}
   <button class="btn ghost" data-i="M4 12a8 8 0 1 1 3 6.2M4 19v-5h5" id="rl">Xoay trái</button>
   <button class="btn ghost" data-i="M20 12a8 8 0 1 0-3 6.2M20 19v-5h-5" id="rr">Xoay phải</button>
   <button class="btn ghost" data-i="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16v4M17 18h4" id="flt" disabled>Bộ lọc</button>
+  <button class="btn ghost" data-i="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" id="crop" disabled>Cắt vùng</button>
   <span class="sep"></span>
   <button class="btn ghost" data-i="M12 3v18M5 8l-3 4 3 4M19 8l3 4-3 4" id="split">Tách file</button>
   <span id="count"></span>
@@ -131,6 +135,16 @@ dialog input[type=range],dialog input[type=checkbox]{accent-color:var(--acc)}
   <label style="justify-content:space-between;align-items:center">Chất lượng<select id="fdpi"><option value="150">Vừa: 150 dpi, file nhẹ</option><option value="200" selected>Cao: 200 dpi, nét hơn</option></select></label>
   <p class="note">Tự động giúp xoá bóng đổ, làm nền trắng và chữ rõ hơn (hợp với ảnh chụp giấy tờ). Đen trắng cho kiểu bản scan. Trang được lọc sẽ thành ảnh nên chữ không còn chọn được. Có thể bấm Hoàn tác.</p>
   <div class="acts"><button type="button" class="btn ghost" id="fcancel">Huỷ</button><button type="button" class="btn pri" id="fgo">Áp dụng bộ lọc</button></div>
+</dialog>
+<dialog id="cdlg" style="width:min(720px,94vw);max-height:96vh;overflow:auto">
+  <h3>Cắt vùng tài liệu</h3>
+  <p id="cinfo" style="color:var(--mute);margin:0 0 10px"></p>
+  <div class="cwrap"><div class="stage"><canvas id="ca"></canvas><svg id="cs"></svg></div></div>
+  <div class="chips" style="margin-top:0"><button class="chip" id="cauto">Tự nhận diện vùng giấy</button><button class="chip" id="call">Chọn toàn trang</button></div>
+  <label style="justify-content:space-between;align-items:center">Bộ lọc sau khi cắt<select id="cflt"><option value="none">Không lọc</option><option value="auto" selected>Tự động (làm đẹp)</option><option value="gray">Xám</option><option value="bw">Đen trắng</option></select></label>
+  <label style="justify-content:space-between;align-items:center">Chất lượng<select id="cdpi"><option value="150">Vừa: 150 dpi, file nhẹ</option><option value="200" selected>Cao: 200 dpi, nét hơn</option></select></label>
+  <p class="note">Kéo 4 góc hoặc các thanh ở giữa cạnh để chọn vùng. Kéo lệch từng góc để nắn thẳng tài liệu chụp xiên. Trang được cắt sẽ thành ảnh nên chữ không còn chọn được. Có thể bấm Hoàn tác.</p>
+  <div class="acts"><button type="button" class="btn ghost" id="ccancel">Huỷ</button><button type="button" class="btn pri" id="cgo">Cắt và áp dụng</button></div>
 </dialog>
 <div id="busy">Đang xử lý...</div><div id="toast"></div>
 
@@ -192,7 +206,7 @@ function render(){
   const sel=selected().length,has=S.pages.length>0;
   $("empty").style.display=has?"none":"block";
   $("count").textContent=has?`${S.pages.length} trang · ${sel} đã chọn`:"";
-  $("save").disabled=!has;$("zip").disabled=!has;$("flt").disabled=!has;$("split").disabled=!has;$("all").disabled=!has;$("undo").disabled=!S.hist.length;
+  $("save").disabled=!has;$("zip").disabled=!has;$("flt").disabled=!has;$("crop").disabled=!has;$("split").disabled=!has;$("all").disabled=!has;$("undo").disabled=!S.hist.length;
   ["del","rl","rr"].forEach(i=>$(i).disabled=!sel);
 }
 
@@ -388,7 +402,8 @@ async function pageCanvas(p,o){
   c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
   const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
   await pg.render({canvasContext:x,viewport:vp}).promise;
-  return{c,w:v1.width,h:v1.height};
+  if(o.rot){const r=o.rot%360,sw=r%180?c.height:c.width,sh=r%180?c.width:c.height,n=document.createElement("canvas");n.width=sw;n.height=sh;const y=n.getContext("2d");y.translate(sw/2,sh/2);y.rotate(r*Math.PI/180);y.drawImage(c,-c.width/2,-c.height/2);return{c:n,w:r%180?v1.height:v1.width,h:r%180?v1.width:v1.height,sc};}
+  return{c,w:v1.width,h:v1.height,sc};
 }
 function shrink(c,sw,sh){
   let cur=c;
@@ -471,6 +486,119 @@ $("fgo").onclick=()=>{
       const si=S.src.push({bytes,doc,name:"đã-lọc.pdf",cache:{}})-1;
       push();t.forEach((p,k)=>{p.s=si;p.i=k});
       render();toast(`Đã lọc ${t.length} trang. Bấm Hoàn tác nếu chưa ưng.`);
+    }finally{$("busy").textContent="Đang xử lý..."}
+  });
+};
+
+/* ===== Cắt vùng tài liệu (có nắn thẳng) ===== */
+const cdlg=$("cdlg"),cs=$("cs");let cBase=null,cPts=[],cDrag=null;
+const cTargets=()=>selected().length?selected():S.pages;
+function homog(src,dst){
+  const A=[],b=[];
+  for(let i=0;i<4;i++){const[x,y]=dst[i],[u,v]=src[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);A.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v)}
+  for(let i=0;i<8;i++){let m=i;for(let r=i+1;r<8;r++)if(Math.abs(A[r][i])>Math.abs(A[m][i]))m=r;
+    [A[i],A[m]]=[A[m],A[i]];[b[i],b[m]]=[b[m],b[i]];
+    for(let r=i+1;r<8;r++){const f=A[r][i]/A[i][i];for(let c=i;c<8;c++)A[r][c]-=f*A[i][c];b[r]-=f*b[i]}}
+  const h=Array(8);for(let i=7;i>=0;i--){let t=b[i];for(let c=i+1;c<8;c++)t-=A[i][c]*h[c];h[i]=t/A[i][i]}
+  return h;
+}
+function warpQuad(sc,q,ow,oh){
+  const out=document.createElement("canvas");out.width=ow;out.height=oh;
+  const h=homog(q,[[0,0],[ow,0],[ow,oh],[0,oh]]),sw=sc.width,sh=sc.height,sd=sc.getContext("2d").getImageData(0,0,sw,sh).data;
+  const ox=out.getContext("2d"),oi=ox.createImageData(ow,oh),od=oi.data;
+  for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){
+    const dn=h[6]*x+h[7]*y+1,u=(h[0]*x+h[1]*y+h[2])/dn,v=(h[3]*x+h[4]*y+h[5])/dn,o=(y*ow+x)*4;
+    od[o+3]=255;
+    if(u<0||v<0||u>=sw-1||v>=sh-1){od[o]=od[o+1]=od[o+2]=255;continue}
+    const x0=u|0,y0=v|0,fx=u-x0,fy=v-y0,i=(y0*sw+x0)*4,j=i+sw*4;
+    for(let k=0;k<3;k++)od[o+k]=(sd[i+k]*(1-fx)+sd[i+4+k]*fx)*(1-fy)+(sd[j+k]*(1-fx)+sd[j+4+k]*fx)*fy;
+  }
+  ox.putImageData(oi,0,0);return out;
+}
+function cropQuad(c,P){
+  const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]),near=(a,b)=>Math.abs(a-b)<2;
+  const ow=Math.max(8,Math.round((d(P[0],P[1])+d(P[3],P[2]))/2)),oh=Math.max(8,Math.round((d(P[0],P[3])+d(P[1],P[2]))/2));
+  if(near(P[0][0],P[3][0])&&near(P[1][0],P[2][0])&&near(P[0][1],P[1][1])&&near(P[3][1],P[2][1])){
+    const o=document.createElement("canvas");o.width=ow;o.height=oh;
+    o.getContext("2d").drawImage(c,P[0][0],P[0][1],P[1][0]-P[0][0],P[3][1]-P[0][1],0,0,ow,oh);return o;
+  }
+  return warpQuad(c,P,ow,oh);
+}
+function cAuto(){
+  const W0=160,s=shrink(cBase,W0,Math.max(8,Math.round(W0*cBase.height/cBase.width))),W=s.width,H=s.height;
+  const d=s.getContext("2d").getImageData(0,0,W,H).data,g=new Uint8Array(W*H),hist=new Array(256).fill(0);
+  for(let i=0;i<W*H;i++){const v=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114)|0;g[i]=v;hist[v]++}
+  const tot=W*H;let sum=0,sb=0,wb=0,mx=0,th=128;for(let i=0;i<256;i++)sum+=i*hist[i];
+  for(let i=0;i<256;i++){wb+=hist[i];if(!wb)continue;const wf=tot-wb;if(!wf)break;sb+=i*hist[i];const mb=sb/wb,mf=(sum-sb)/wf,v=wb*wf*(mb-mf)**2;if(v>mx){mx=v;th=i}}
+  const rows=new Array(H).fill(0),cols=new Array(W).fill(0);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(g[y*W+x]>th){rows[y]++;cols[x]++}
+  const f=(a,n)=>{const T=n*.25;let i=0,j=a.length-1;while(i<j&&a[i]<T)i++;while(j>i&&a[j]<T)j--;return[i,j]};
+  const[y0,y1]=f(rows,W),[x0,x1]=f(cols,H);
+  if(x1-x0<W*.25||y1-y0<H*.25)return false;
+  cPts=[{x:x0/W,y:y0/H},{x:(x1+1)/W,y:y0/H},{x:(x1+1)/W,y:(y1+1)/H},{x:x0/W,y:(y1+1)/H}];return true;
+}
+const cFull=()=>{cPts=[{x:.03,y:.03},{x:.97,y:.03},{x:.97,y:.97},{x:.03,y:.97}]};
+function cDraw(){
+  if(!cBase)return;
+  const W=cBase.width,H=cBase.height,r=cs.getBoundingClientRect(),k=r.width?W/r.width:1;
+  const P=cPts.map(p=>[p.x*W,p.y*H]),pl=P.map(p=>p.join(" ")).join("L");
+  let h=`<path d="M0 0H${W}V${H}H0ZM${pl}Z" fill="rgba(5,20,50,.5)" fill-rule="evenodd"/><polygon points="${P.map(p=>p.join(",")).join(" ")}" fill="none" stroke="#1e8cff" stroke-width="${2*k}"/>`;
+  P.forEach((p,i)=>{
+    const q=P[(i+1)%4],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,L=Math.hypot(q[0]-p[0],q[1]-p[1])||1,ux=(q[0]-p[0])/L*14*k,uy=(q[1]-p[1])/L*14*k;
+    h+=`<line x1="${mx-ux}" y1="${my-uy}" x2="${mx+ux}" y2="${my+uy}" stroke="#1e8cff" stroke-width="${8*k}" stroke-linecap="round" pointer-events="none"/><circle cx="${mx}" cy="${my}" r="${18*k}" fill="transparent" data-h="e${i}" style="cursor:move"/>`;
+  });
+  P.forEach((p,i)=>{h+=`<circle cx="${p[0]}" cy="${p[1]}" r="${10*k}" fill="#1e8cff" stroke="#fff" stroke-width="${2*k}" pointer-events="none"/><circle cx="${p[0]}" cy="${p[1]}" r="${22*k}" fill="transparent" data-h="c${i}" style="cursor:grab"/>`});
+  cs.setAttribute("viewBox",`0 0 ${W} ${H}`);cs.innerHTML=h;
+}
+const cRel=e=>{const r=cs.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height}};
+cs.addEventListener("pointerdown",e=>{const h=e.target.dataset?.h;if(!h)return;cs.setPointerCapture(e.pointerId);cDrag={h,last:cRel(e)};e.preventDefault()});
+cs.addEventListener("pointermove",e=>{
+  if(!cDrag)return;
+  const p=cRel(e),dx=p.x-cDrag.last.x,dy=p.y-cDrag.last.y,cl=v=>Math.min(1,Math.max(0,v)),i=+cDrag.h[1];
+  if(cDrag.h[0]==="c")cPts[i]={x:cl(p.x),y:cl(p.y)};
+  else[i,(i+1)%4].forEach(k=>cPts[k]={x:cl(cPts[k].x+dx),y:cl(cPts[k].y+dy)});
+  cDrag.last=p;cDraw();
+});
+["pointerup","pointercancel"].forEach(v=>cs.addEventListener(v,()=>cDrag=null));
+addEventListener("resize",()=>{if(cdlg.open)cDraw()});
+$("crop").onclick=async()=>{
+  const sel=selected();
+  if(!sel.length&&S.pages.length!==1){toast("Hãy chọn trang cần cắt");return}
+  const t=cTargets();
+  $("cinfo").textContent=t.length>1?`Vùng cắt đặt trên trang đầu tiên và áp dụng cho ${t.length} trang đã chọn.`:"Kéo các điểm xanh để chọn vùng tài liệu.";
+  cBase=null;cs.innerHTML="";cdlg.showModal();
+  try{
+    cBase=(await pageCanvas(t[0],{width:760,rot:t[0].rot})).c;
+    const a=$("ca");a.width=cBase.width;a.height=cBase.height;a.getContext("2d").drawImage(cBase,0,0);
+    if(!cAuto())cFull();
+    cDraw();
+  }catch(e){console.error(e);cdlg.close();toast("Không dựng được trang để cắt")}
+};
+$("cauto").onclick=()=>{if(!cBase)return;if(!cAuto()){cFull();toast("Chưa nhận diện được, đã chọn gần toàn trang")}cDraw()};
+$("call").onclick=()=>{cFull();cDraw()};
+$("ccancel").onclick=()=>cdlg.close();
+$("cgo").onclick=()=>{
+  const t=cTargets().slice(),dpi=+$("cdpi").value,q=cPts.map(p=>({...p})),f=$("cflt").value;
+  cdlg.close();
+  busy(async()=>{
+    try{
+      const out=await PDFDocument.create();
+      for(let k=0;k<t.length;k++){
+        $("busy").textContent=`Đang cắt trang ${k+1}/${t.length}...`;await tick();
+        const r=await pageCanvas(t[k],{dpi,rot:t[k].rot}),W=r.c.width,H=r.c.height;
+        const oc=cropQuad(r.c,q.map(p=>[p.x*W,p.y*H]));
+        if(f!=="none")applyFilter(oc,{f,b:0,c:0,sharp:false});
+        const blob=await new Promise(res=>oc.toBlob(res,"image/jpeg",.88));
+        const im=await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+        const pw=oc.width/r.sc,ph=oc.height/r.sc;
+        out.addPage([pw,ph]).drawImage(im,{x:0,y:0,width:pw,height:ph});
+        r.c.width=0;
+      }
+      const bytes=await out.save(),doc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+      const si=S.src.push({bytes,doc,name:"đã-cắt.pdf",cache:{}})-1;
+      push();t.forEach((p,k)=>{p.s=si;p.i=k;p.rot=0});
+      render();toast(`Đã cắt ${t.length} trang. Bấm Hoàn tác nếu chưa ưng.`);
     }finally{$("busy").textContent="Đang xử lý..."}
   });
 };
